@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LocalVoice - Feed</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; }
+        .header { background: white; padding: 15px 20px; border-bottom: 1px solid #ddd; position: sticky; top: 0; z-index: 100; }
+        .header-content { max-width: 680px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 24px; font-weight: bold; color: #4361ee; }
+        .btn { padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; margin-left: 10px; font-weight: 600; }
+        .btn-primary { background: #4361ee; color: white; }
+        .btn-danger { background: #dc2626; color: white; }
+        .container { max-width: 680px; margin: 20px auto; padding: 0 20px; }
+        .post-card { background: white; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
+        .post-header { padding: 16px; display: flex; gap: 12px; }
+        .avatar { width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(135deg, #4361ee, #764ba2); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; }
+        .post-info { flex: 1; }
+        .pseudonym { font-weight: 600; color: #4361ee; }
+        .location { font-size: 12px; color: #666; margin-top: 2px; }
+        .time { font-size: 11px; color: #999; margin-top: 2px; }
+        .post-content { padding: 0 16px 16px 16px; }
+        .post-title { font-weight: 700; font-size: 18px; margin-bottom: 8px; }
+        .post-description { color: #555; line-height: 1.5; }
+        .post-media { margin-top: 12px; }
+        .post-media img, .post-media video { max-width: 100%; max-height: 400px; border-radius: 8px; }
+        .post-stats { padding: 8px 16px; color: #666; font-size: 13px; border-top: 1px solid #f0f0f0; }
+        .post-actions { display: flex; padding: 4px 0; }
+        .action-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; background: none; border: none; cursor: pointer; font-size: 14px; font-weight: 600; color: #666; border-radius: 8px; transition: all 0.2s; }
+        .action-btn:hover { background: #f8f9fa; }
+        .action-btn.liked { color: #4361ee; }
+        .action-btn.disliked { color: #dc2626; }
+        .action-btn.shared { color: #10b981; }
+        .comments-section { padding: 16px; background: #fafafa; border-top: 1px solid #f0f0f0; }
+        .comment { display: flex; gap: 10px; margin-bottom: 12px; }
+        .comment-avatar { width: 32px; height: 32px; border-radius: 50%; background: #e0e0e0; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+        .comment-content { flex: 1; }
+        .comment-pseudonym { font-weight: 600; font-size: 12px; color: #4361ee; }
+        .comment-text { font-size: 13px; color: #333; margin-top: 2px; }
+        .comment-time { font-size: 10px; color: #999; margin-top: 4px; }
+        .comment-input { display: flex; gap: 10px; margin-top: 12px; }
+        .comment-input input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 20px; outline: none; font-size: 14px; }
+        .comment-input button { padding: 8px 16px; background: #4361ee; color: white; border: none; border-radius: 20px; cursor: pointer; font-weight: 600; }
+        .share-popup { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: white; padding: 12px 20px; border-radius: 40px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 1000; display: none; align-items: center; gap: 12px; }
+        .share-popup.active { display: flex; }
+        .share-popup input { padding: 8px; border: 1px solid #ddd; border-radius: 8px; width: 250px; }
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; max-width: 500px; width: 90%; border-radius: 16px; padding: 24px; }
+        .modal-header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .close-modal { background: none; border: none; font-size: 24px; cursor: pointer; }
+        input, textarea { width: 100%; padding: 10px; margin-bottom: 12px; border: 1px solid #ddd; border-radius: 8px; font-family: inherit; }
+        textarea { min-height: 100px; resize: vertical; }
+        .file-upload { border: 2px dashed #ddd; padding: 20px; text-align: center; cursor: pointer; border-radius: 8px; margin-bottom: 12px; }
+        .submit-btn { width: 100%; padding: 12px; background: #4361ee; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
+        .empty-state { text-align: center; padding: 60px; color: #999; }
+        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 8px; z-index: 1100; animation: slideUp 0.3s ease; }
+        @keyframes slideUp { from { transform: translateX(-50%) translateY(100px); opacity: 0; } to { transform: translateX(-50%) translateY(0); opacity: 1; } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="logo">📍 LocalVoice</div>
+            <div>
+                <button class="btn btn-primary" onclick="openModal()">+ New Post</button>
+                <button class="btn btn-danger" onclick="logout()">Logout</button>
+            </div>
+        </div>
+    </div>
+    <div class="container"><div id="feed"><div class="empty-state">Loading posts...</div></div></div>
+
+    <div id="sharePopup" class="share-popup">
+        <span>🔗 Share link:</span>
+        <input type="text" id="shareLink" readonly>
+        <button onclick="copyShareLink()">Copy</button>
+    </div>
+
+    <div id="postModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h3>Create New Post</h3><button class="close-modal" onclick="closeModal()">&times;</button></div>
+            <form id="postForm">
+                <input type="text" id="title" placeholder="What's the issue? *" required>
+                <input type="text" id="location" placeholder="Location *" required>
+                <textarea id="description" placeholder="Describe the issue... *" required></textarea>
+                <div class="file-upload" onclick="document.getElementById('fileInput').click()">📸 Click to upload photo or video</div>
+                <input type="file" id="fileInput" accept="image/*,video/*" style="display:none">
+                <div id="preview"></div>
+                <button type="submit" class="submit-btn">Post Anonymously</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        async function apiCall(url, options = {}) {
+            const response = await fetch(url, {
+                ...options,
+                credentials: 'include',
+                headers: options.body instanceof FormData ? {} : { 'Content-Type': 'application/json', ...options.headers }
+            });
+            if (response.status === 401) window.location.href = '/login';
+            return response;
+        }
+
+        async function checkAuth() {
+            try {
+                const r = await apiCall('/api/check-auth');
+                const d = await r.json();
+                if (!d.authenticated) window.location.href = '/login';
+                else loadPosts();
+            } catch(e) { window.location.href = '/login'; }
+        }
+
+        async function loadPosts() {
+            try {
+                const r = await apiCall('/api/issues');
+                const posts = await r.json();
+                displayPosts(posts);
+            } catch(e) { console.error(e); }
+        }
+
+        async function displayPosts(posts) {
+            const feed = document.getElementById('feed');
+            if (!posts || posts.length === 0) {
+                feed.innerHTML = '<div class="empty-state">No posts yet. Create your first post!</div>';
+                return;
+            }
+            
+            feed.innerHTML = '';
+            for (const post of posts) {
+                const comments = await loadComments(post.id);
+                const likeClass = post.user_vote === 'like' ? 'liked' : '';
+                const dislikeClass = post.user_vote === 'dislike' ? 'disliked' : '';
+                const shareClass = post.user_shared ? 'shared' : '';
+                
+                const postDiv = document.createElement('div');
+                postDiv.className = 'post-card';
+                postDiv.innerHTML = `
+                    <div class="post-header">
+                        <div class="avatar">👤</div>
+                        <div class="post-info">
+                            <div class="pseudonym">${escapeHtml(post.pseudonym)}</div>
+                            <div class="location">📍 ${escapeHtml(post.location)}</div>
+                            <div class="time">${formatTime(post.timestamp)}</div>
+                        </div>
+                    </div>
+                    ${post.file_url ? `<div class="post-media">${post.file_type === 'image' ? `<img src="${post.file_url}" alt="media">` : `<video controls src="${post.file_url}"></video>`}</div>` : ''}
+                    <div class="post-content">
+                        <div class="post-title">${escapeHtml(post.title)}</div>
+                        <div class="post-description">${escapeHtml(post.description)}</div>
+                    </div>
+                    <div class="post-stats">
+                        ${post.likes > 0 ? `<span>👍 ${post.likes}</span>` : ''}
+                        ${post.dislikes > 0 ? `<span style="margin-left:12px;">👎 ${post.dislikes}</span>` : ''}
+                        ${post.shares > 0 ? `<span style="margin-left:12px;">🔗 ${post.shares}</span>` : ''}
+                    </div>
+                    <div class="post-actions">
+                        <button class="action-btn ${likeClass}" onclick="likePost('${post.id}')" id="like-btn-${post.id}">
+                            👍 Like
+                        </button>
+                        <button class="action-btn ${dislikeClass}" onclick="dislikePost('${post.id}')" id="dislike-btn-${post.id}">
+                            👎 Dislike
+                        </button>
+                        <button class="action-btn" onclick="toggleComments('${post.id}')">
+                            💬 Comment
+                        </button>
+                        <button class="action-btn ${shareClass}" onclick="sharePost('${post.id}')" id="share-btn-${post.id}">
+                            🔗 Share
+                        </button>
+                    </div>
+                    <div id="comments-${post.id}" class="comments-section" style="display:none;">
+                        <div id="comments-list-${post.id}">${renderComments(comments)}</div>
+                        <div class="comment-input">
+                            <input type="text" id="comment-input-${post.id}" placeholder="Write a comment..." maxlength="500">
+                            <button onclick="addComment('${post.id}')">Post</button>
+                        </div>
+                    </div>
+                `;
+                feed.appendChild(postDiv);
+            }
+        }
+
+        function renderComments(comments) {
+            if (!comments || comments.length === 0) {
+                return '<div style="padding:12px;text-align:center;color:#999;">No comments yet. Be the first!</div>';
+            }
+            return comments.map(c => `
+                <div class="comment">
+                    <div class="comment-avatar">👤</div>
+                    <div class="comment-content">
+                        <div class="comment-pseudonym">${escapeHtml(c.pseudonym)}</div>
+                        <div class="comment-text">${escapeHtml(c.text)}</div>
+                        <div class="comment-time">${formatTime(c.timestamp)}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function loadComments(postId) {
+            try {
+                const r = await apiCall(`/api/issues/${postId}/comments`);
+                return await r.json();
+            } catch(e) { return []; }
+        }
+
+        async function likePost(postId) {
+            try {
+                const r = await apiCall(`/api/issues/${postId}/like`, { method: 'POST' });
+                const d = await r.json();
+                loadPosts(); // Reload to show updated counts
+                if (d.action === 'added') showToast('Liked!');
+                else if (d.action === 'removed') showToast('Like removed');
+                else if (d.action === 'changed') showToast('Changed to like');
+            } catch(e) { showToast('Error'); }
+        }
+
+        async function dislikePost(postId) {
+            try {
+                const r = await apiCall(`/api/issues/${postId}/dislike`, { method: 'POST' });
+                const d = await r.json();
+                loadPosts(); // Reload to show updated counts
+                if (d.action === 'added') showToast('Disliked!');
+                else if (d.action === 'removed') showToast('Dislike removed');
+                else if (d.action === 'changed') showToast('Changed to dislike');
+            } catch(e) { showToast('Error'); }
+        }
+
+        async function addComment(postId) {
+            const input = document.getElementById(`comment-input-${postId}`);
+            const comment = input.value.trim();
+            if (!comment) { showToast('Please enter a comment'); return; }
+            
+            try {
+                const r = await apiCall(`/api/issues/${postId}/comments`, {
+                    method: 'POST',
+                    body: JSON.stringify({ comment: comment })
+                });
+                if (r.ok) {
+                    input.value = '';
+                    const comments = await loadComments(postId);
+                    document.getElementById(`comments-list-${postId}`).innerHTML = renderComments(comments);
+                    showToast('Comment added!');
+                }
+            } catch(e) { showToast('Error adding comment'); }
+        }
+
+        async function sharePost(postId) {
+            try {
+                const r = await apiCall(`/api/issues/${postId}/share`, { method: 'POST' });
+                const d = await r.json();
+                
+                if (d.already_shared) {
+                    showToast('You already shared this post');
+                } else {
+                    const popup = document.getElementById('sharePopup');
+                    document.getElementById('shareLink').value = d.share_url;
+                    popup.classList.add('active');
+                    setTimeout(() => popup.classList.remove('active'), 5000);
+                    showToast('Share link copied!');
+                    loadPosts(); // Reload to update share count
+                }
+            } catch(e) { showToast('Error sharing'); }
+        }
+
+        function copyShareLink() {
+            const link = document.getElementById('shareLink');
+            link.select();
+            document.execCommand('copy');
+            showToast('Link copied!');
+        }
+
+        function toggleComments(postId) {
+            const div = document.getElementById(`comments-${postId}`);
+            div.style.display = div.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function formatTime(t) {
+            const d = new Date(t), now = new Date();
+            const diff = Math.floor((now - d) / 1000 / 60);
+            if (diff < 1) return 'Just now';
+            if (diff < 60) return `${diff}m ago`;
+            if (diff < 1440) return `${Math.floor(diff / 60)}h ago`;
+            return `${Math.floor(diff / 1440)}d ago`;
+        }
+
+        function escapeHtml(s) { if (!s) return ''; const div = document.createElement('div'); div.textContent = s; return div.innerHTML; }
+        function showToast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 3000); }
+        function openModal() { document.getElementById('postModal').classList.add('active'); }
+        function closeModal() { document.getElementById('postModal').classList.remove('active'); document.getElementById('postForm').reset(); document.getElementById('preview').innerHTML = ''; }
+        function logout() { window.location.href = '/logout'; }
+
+        document.getElementById('postForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fd = new FormData();
+            fd.append('title', document.getElementById('title').value);
+            fd.append('location', document.getElementById('location').value);
+            fd.append('description', document.getElementById('description').value);
+            const file = document.getElementById('fileInput').files[0];
+            if (file) fd.append('image', file);
+            
+            try {
+                const r = await apiCall('/api/issues', { method: 'POST', body: fd });
+                if (r.ok) {
+                    showToast('Post published!');
+                    closeModal();
+                    loadPosts();
+                } else {
+                    const d = await r.json();
+                    showToast(d.error || 'Error');
+                }
+            } catch(e) { showToast('Network error'); }
+        });
+
+        document.getElementById('fileInput').addEventListener('change', (e) => {
+            const f = e.target.files[0];
+            if (f) {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    document.getElementById('preview').innerHTML = f.type.startsWith('image') 
+                        ? `<img src="${ev.target.result}" style="max-width:100%;border-radius:8px;">` 
+                        : `<video controls src="${ev.target.result}" style="max-width:100%;border-radius:8px;"></video>`;
+                };
+                reader.readAsDataURL(f);
+            }
+        });
+
+        checkAuth();
+        setInterval(loadPosts, 30000);
+    </script>
+</body>
+</html>

@@ -1,22 +1,20 @@
 [
   {
-    "id": "075d279ff8ef4af0a2ed8fafc2963bb9",
-    "title": "vscvs",
-    "description": "sdnv sd",
-    "location": "svsd",
-    "timestamp": "2026-05-24T18:11:29.167358",
-    "votes": 1,
+    "id": "0f794340-f56e-42f8-9dbb-952cd5aaec28",
+    "title": "te",
+    "description": "te",
+    "location": "te",
+    "timestamp": "2026-05-24T21:54:04.007238",
+    "pseudonym": "user_a6a805",
+    "likes": 0,
+    "dislikes": 1,
+    "shares": 0,
     "file_url": null,
-    "file_type": null
-  },
-  {
-    "id": "de3627459cac49c49e13e065dde6ebc8",
-    "title": "Poth hole on newR",
-    "description": "TEST",
-    "location": "GFS",
-    "timestamp": "2026-05-24T18:10:36.700231",
-    "votes": 1,
-    "file_url": "/uploads/4dd6dc398eeb4164bd25f67c54aa94d6.png",
-    "file_type": "image"
+    "file_type": null,
+    "user_id": "a6a80534-6b56-444c-b77e-c22103114fdb",
+    "votes": {
+      "a6a80534-6b56-444c-b77e-c22103114fdb": "dislike"
+    },
+    "shared_by": []
   }
 ]

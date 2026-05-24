@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head><title>Test</title></head>
+<body>
+<h1>Browser Test Page</h1>
+<p>If you see this, the browser can reach the server.</p>
+<button onclick="test()">Test Login API</button>
+<div id="result"></div>
+<script>
+async function test() {
+    const response = await fetch('/api/check-auth');
+    const data = await response.json();
+    document.getElementById('result').innerHTML = JSON.stringify(data);
+}
+</script>
+</body>
+</html>

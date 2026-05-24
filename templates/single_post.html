@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LocalVoice - Post</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 680px; margin: 0 auto; }
+        .post-card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .post-header { padding: 16px; display: flex; gap: 12px; border-bottom: 1px solid #f0f0f0; }
+        .avatar { width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(135deg, #4361ee, #764ba2); display: flex; align-items: center; justify-content: center; color: white; }
+        .post-info { flex: 1; }
+        .pseudonym { font-weight: 600; color: #4361ee; }
+        .location { font-size: 12px; color: #666; margin-top: 2px; }
+        .time { font-size: 11px; color: #999; margin-top: 2px; }
+        .post-content { padding: 16px; }
+        .post-title { font-weight: 700; font-size: 18px; margin-bottom: 8px; }
+        .post-description { color: #555; line-height: 1.5; }
+        .post-media img, .post-media video { width: 100%; max-height: 500px; object-fit: contain; }
+        .btn { display: inline-block; margin-top: 20px; padding: 10px 20px; background: #4361ee; color: white; text-decoration: none; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="post-card">
+            <div class="post-header">
+                <div class="avatar">👤</div>
+                <div class="post-info">
+                    <div class="pseudonym">{{ post.pseudonym }}</div>
+                    <div class="location">📍 {{ post.location }}</div>
+                    <div class="time">{{ post.timestamp }}</div>
+                </div>
+            </div>
+            {% if post.file_url %}
+            <div class="post-media">
+                {% if post.file_type == 'image' %}
+                <img src="{{ post.file_url }}" alt="media">
+                {% else %}
+                <video controls src="{{ post.file_url }}"></video>
+                {% endif %}
+            </div>
+            {% endif %}
+            <div class="post-content">
+                <div class="post-title">{{ post.title }}</div>
+                <div class="post-description">{{ post.description }}</div>
+            </div>
+        </div>
+        <div style="text-align: center; margin-top: 20px;">
+            <a href="/" class="btn">← Back to Feed</a>
+        </div>
+    </div>
+</body>
+</html>

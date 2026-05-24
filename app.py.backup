@@ -1,0 +1,125 @@
+from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask_cors import CORS
+import os
+import uuid
+from datetime import datetime
+import json
+
+app = Flask(__name__)
+CORS(app)
+
+# Configuration
+ISSUES_FILE = 'issues.json'
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4', 'mov', 'avi', 'mkv'}
+MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
+
+# Admin password - CHANGE THIS!
+ADMIN_PASSWORD = 'CHANGE_THIS_SECRET_KEY_12345'
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def load_issues():
+    if os.path.exists(ISSUES_FILE):
+        with open(ISSUES_FILE, 'r') as f:
+            return json.load(f)
+    return []
+
+def save_issues(issues):
+    with open(ISSUES_FILE, 'w') as f:
+        json.dump(issues, f, indent=2)
+
+# Main routes
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/admin')
+def admin_login():
+    return render_template('admin/login.html')
+
+@app.route('/admin/dashboard')
+def admin_dashboard():
+    return render_template('admin/dashboard.html')
+
+# API routes
+@app.route('/api/issues', methods=['GET'])
+def get_issues():
+    issues = load_issues()
+    return jsonify(issues)
+
+@app.route('/api/issues', methods=['POST'])
+def create_issue():
+    try:
+        data = request.form
+        title = data.get('title', '').strip()
+        description = data.get('description', '').strip()
+        location = data.get('location', '').strip()
+        
+        if not title or not description or not location:
+            return jsonify({'error': 'Title, description, and location required'}), 400
+        
+        file_url = None
+        file_type = None
+        
+        if 'image' in request.files:
+            file = request.files['image']
+            if file and allowed_file(file.filename):
+                ext = file.filename.rsplit('.', 1)[1].lower()
+                filename = f"{uuid.uuid4().hex}.{ext}"
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(filepath)
+                file_url = f'/uploads/{filename}'
+                file_type = 'image' if ext in {'png', 'jpg', 'jpeg', 'gif', 'webp'} else 'video'
+        
+        issue = {
+            'id': uuid.uuid4().hex,
+            'title': title,
+            'description': description,
+            'location': location,
+            'timestamp': datetime.now().isoformat(),
+            'votes': 0,
+            'file_url': file_url,
+            'file_type': file_type
+        }
+        
+        issues = load_issues()
+        issues.insert(0, issue)
+        save_issues(issues)
+        
+        return jsonify(issue), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/issues/<issue_id>/vote', methods=['POST'])
+def vote_issue(issue_id):
+    issues = load_issues()
+    for issue in issues:
+        if issue['id'] == issue_id:
+            issue['votes'] += 1
+            save_issues(issues)
+            return jsonify({'votes': issue['votes']})
+    return jsonify({'error': 'Issue not found'}), 404
+
+@app.route('/api/issues/<issue_id>', methods=['DELETE'])
+def delete_issue(issue_id):
+    admin_key = request.headers.get('X-Admin-Key')
+    if admin_key != ADMIN_PASSWORD:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    issues = load_issues()
+    issues = [i for i in issues if i['id'] != issue_id]
+    save_issues(issues)
+    return jsonify({'message': 'Deleted'})
+
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=False)

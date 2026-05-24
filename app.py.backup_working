@@ -1,0 +1,282 @@
+from flask import Flask, render_template, request, jsonify, send_from_directory, session
+from flask_cors import CORS
+import os
+import uuid
+import hashlib
+from datetime import datetime
+import json
+
+app = Flask(__name__)
+
+# Critical: Set a fixed secret key and session config
+app.secret_key = 'your-secret-key-here-change-this-in-production-2024'
+app.config['SESSION_COOKIE_NAME'] = 'localvoice_session'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SECURE'] = False  # Allow HTTP
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = 86400 * 30  # 30 days
+
+CORS(app, supports_credentials=True)
+
+# Data files
+ISSUES_FILE = 'issues.json'
+USERS_FILE = 'users.json'
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4', 'mov'}
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
+
+def load_issues():
+    if os.path.exists(ISSUES_FILE):
+        with open(ISSUES_FILE, 'r') as f:
+            return json.load(f)
+    return []
+
+def save_issues(issues):
+    with open(ISSUES_FILE, 'w') as f:
+        json.dump(issues, f, indent=2)
+
+def load_users():
+    if os.path.exists(USERS_FILE):
+        with open(USERS_FILE, 'r') as f:
+            return json.load(f)
+    return {}
+
+def save_users(users):
+    with open(USERS_FILE, 'w') as f:
+        json.dump(users, f, indent=2)
+
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def get_user_by_id(user_id):
+    users = load_users()
+    for username, user_data in users.items():
+        if user_data.get('id') == user_id:
+            return user_data
+    return None
+
+@app.route('/')
+def index():
+    user_id = session.get('user_id')
+    if user_id:
+        user = get_user_by_id(user_id)
+        if user:
+            return render_template('feed.html', username=user.get('username'))
+    return render_template('landing.html')
+
+@app.route('/login')
+def login_page():
+    return render_template('login.html')
+
+@app.route('/register')
+def register_page():
+    return render_template('register.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return render_template('landing.html')
+
+@app.route('/api/register', methods=['POST'])
+def register():
+    data = request.json
+    username = data.get('username', '').strip()
+    password = data.get('password', '').strip()
+    
+    if not username or not password:
+        return jsonify({'error': 'Username and password required'}), 400
+    
+    if len(username) < 3:
+        return jsonify({'error': 'Username must be at least 3 characters'}), 400
+    
+    if len(password) < 4:
+        return jsonify({'error': 'Password must be at least 4 characters'}), 400
+    
+    users = load_users()
+    
+    if username in users:
+        return jsonify({'error': 'Username already exists'}), 400
+    
+    user_id = str(uuid.uuid4())
+    users[username] = {
+        'id': user_id,
+        'username': username,
+        'password': hash_password(password),
+        'created_at': datetime.now().isoformat(),
+        'posts_count': 0,
+        'pseudonym': f"user_{user_id[:6]}"
+    }
+    
+    save_users(users)
+    return jsonify({'message': 'Registration successful', 'username': username}), 201
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.json
+    username = data.get('username', '').strip()
+    password = data.get('password', '').strip()
+    
+    users = load_users()
+    
+    if username not in users:
+        return jsonify({'error': 'Invalid credentials'}), 401
+    
+    if users[username]['password'] != hash_password(password):
+        return jsonify({'error': 'Invalid credentials'}), 401
+    
+    # Set session
+    session['user_id'] = users[username]['id']
+    session['username'] = username
+    session.permanent = True
+    
+    return jsonify({
+        'message': 'Login successful',
+        'username': username,
+        'pseudonym': users[username]['pseudonym']
+    }), 200
+
+@app.route('/api/check-auth')
+def check_auth():
+    user_id = session.get('user_id')
+    if user_id:
+        user = get_user_by_id(user_id)
+        if user:
+            return jsonify({
+                'authenticated': True,
+                'username': user.get('username'),
+                'pseudonym': user.get('pseudonym')
+            })
+    return jsonify({'authenticated': False})
+
+@app.route('/api/issues', methods=['GET'])
+def get_issues():
+    issues = load_issues()
+    # Remove sensitive data
+    for issue in issues:
+        issue.pop('user_id', None)
+        issue.pop('username', None)
+    return jsonify(issues)
+
+@app.route('/api/issues', methods=['POST'])
+def create_issue():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'Please login first'}), 401
+    
+    user = get_user_by_id(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 401
+    
+    title = request.form.get('title', '').strip()
+    description = request.form.get('description', '').strip()
+    location = request.form.get('location', '').strip()
+    
+    if not title or not description or not location:
+        return jsonify({'error': 'All fields are required'}), 400
+    
+    file_url = None
+    file_type = None
+    
+    if 'image' in request.files:
+        file = request.files['image']
+        if file and file.filename:
+            ext = file.filename.rsplit('.', 1)[1].lower()
+            if ext in ALLOWED_EXTENSIONS:
+                filename = f"{uuid.uuid4().hex}.{ext}"
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(filepath)
+                file_url = f'/uploads/{filename}'
+                file_type = 'image' if ext in {'png', 'jpg', 'jpeg', 'gif', 'webp'} else 'video'
+    
+    issue = {
+        'id': str(uuid.uuid4()),
+        'title': title,
+        'description': description,
+        'location': location,
+        'timestamp': datetime.now().isoformat(),
+        'votes': 0,
+        'file_url': file_url,
+        'file_type': file_type,
+        'user_id': user_id,
+        'username': user['username'],
+        'pseudonym': user['pseudonym']
+    }
+    
+    issues = load_issues()
+    issues.insert(0, issue)
+    save_issues(issues)
+    
+    # Update user's post count
+    users = load_users()
+    if user['username'] in users:
+        users[user['username']]['posts_count'] += 1
+        save_users(users)
+    
+    # Return public version
+    public_issue = issue.copy()
+    public_issue.pop('user_id', None)
+    public_issue.pop('username', None)
+    
+    return jsonify(public_issue), 201
+
+@app.route('/api/issues/<issue_id>/vote', methods=['POST'])
+def vote_issue(issue_id):
+    issues = load_issues()
+    for issue in issues:
+        if issue['id'] == issue_id:
+            issue['votes'] += 1
+            save_issues(issues)
+            return jsonify({'votes': issue['votes']})
+    return jsonify({'error': 'Issue not found'}), 404
+
+@app.route('/api/issues/<issue_id>', methods=['DELETE'])
+def delete_issue(issue_id):
+    user_id = session.get('user_id')
+    issues = load_issues()
+    
+    for i, issue in enumerate(issues):
+        if issue['id'] == issue_id:
+            if issue.get('user_id') == user_id:
+                issues.pop(i)
+                save_issues(issues)
+                return jsonify({'message': 'Deleted'})
+            else:
+                return jsonify({'error': 'Unauthorized'}), 401
+    
+    return jsonify({'error': 'Issue not found'}), 404
+
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
+
+# Admin routes
+@app.route('/admin')
+def admin_login():
+    return render_template('admin/login.html')
+
+@app.route('/admin/dashboard')
+def admin_dashboard():
+    return render_template('admin/dashboard.html')
+
+@app.route('/api/admin/users')
+def admin_users():
+    admin_key = request.headers.get('X-Admin-Key')
+    if admin_key != 'CHANGE_THIS_SECRET_KEY_12345':
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    users = load_users()
+    safe_users = []
+    for username, user_data in users.items():
+        safe_users.append({
+            'username': username,
+            'pseudonym': user_data['pseudonym'],
+            'created_at': user_data['created_at'],
+            'posts_count': user_data['posts_count']
+        })
+    return jsonify(safe_users)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=True)
